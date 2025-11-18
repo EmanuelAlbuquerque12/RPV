@@ -56,8 +56,15 @@ body {
 
 .upload-section {
     display: flex;
-    align-items: center;
-    gap: 15px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.file-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
 }
 
 .btn-upload {
@@ -84,6 +91,16 @@ body {
 .file-count {
     color: var(--text-secondary);
     font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.sheet-info {
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    background: var(--bg-color);
+    padding: 5px 10px;
+    border-radius: 5px;
+    border-left: 3px solid var(--primary-color);
 }
 
 /* Filtros */

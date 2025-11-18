@@ -6,6 +6,7 @@
     <title>Dashboard de RPVs</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -14,10 +15,13 @@
             <h1>📊 Dashboard de Requisições de Pequeno Valor (RPV)</h1>
             <div class="upload-section">
                 <label for="csvFiles" class="btn-upload">
-                    📁 Carregar Arquivos CSV
-                    <input type="file" id="csvFiles" accept=".csv" multiple>
+                    📁 Carregar Arquivos (CSV/Excel)
+                    <input type="file" id="csvFiles" accept=".csv,.xls,.xlsx" multiple>
                 </label>
-                <span id="fileCount" class="file-count">Nenhum arquivo carregado</span>
+                <div class="file-info">
+                    <span id="fileCount" class="file-count">Nenhum arquivo carregado</span>
+                    <span id="sheetInfo" class="sheet-info"></span>
+                </div>
             </div>
         </header>
 
@@ -172,7 +176,7 @@
                     </thead>
                     <tbody id="tableBody">
                         <tr>
-                            <td colspan="7" class="no-data">Carregue arquivos CSV para visualizar os dados</td>
+                            <td colspan="7" class="no-data">Carregue arquivos CSV ou Excel para visualizar os dados</td>
                         </tr>
                     </tbody>
                 </table>

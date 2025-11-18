@@ -4,6 +4,9 @@ let filteredData = [];
 let currentPage = 1;
 const itemsPerPage = 50;
 let charts = {};
+const MAX_FILES = 100;
+const MAX_SHEETS = 100;
+let loadedSheetsInfo = [];
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', () => {
@@ -23,29 +26,92 @@ function setupEventListeners() {
     document.getElementById('btnNextPage').addEventListener('click', () => changePage(1));
 }
 
-// Manipular upload de arquivos CSV
+// Manipular upload de arquivos (CSV e Excel)
 async function handleFileUpload(event) {
     const files = event.target.files;
     if (files.length === 0) return;
 
+    // Validar limite de arquivos
+    if (files.length > MAX_FILES) {
+        alert(`Limite excedido! Você pode carregar no máximo ${MAX_FILES} arquivos por vez.`);
+        event.target.value = '';
+        return;
+    }
+
     document.getElementById('fileCount').textContent = `Carregando ${files.length} arquivo(s)...`;
+    document.getElementById('sheetInfo').textContent = '';
     allData = [];
+    loadedSheetsInfo = [];
 
     try {
+        let totalSheets = 0;
+
         for (let file of files) {
-            const data = await readCSV(file);
-            allData = allData.concat(data);
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+            let fileData = [];
+            let sheetsCount = 0;
+
+            if (fileExtension === 'csv') {
+                fileData = await readCSV(file);
+                sheetsCount = 1;
+                loadedSheetsInfo.push({
+                    fileName: file.name,
+                    sheetName: 'CSV',
+                    records: fileData.length
+                });
+            } else if (fileExtension === 'xls' || fileExtension === 'xlsx') {
+                const result = await readExcel(file);
+                fileData = result.data;
+                sheetsCount = result.sheets.length;
+
+                // Adicionar informações das abas
+                result.sheets.forEach(sheet => {
+                    loadedSheetsInfo.push({
+                        fileName: file.name,
+                        sheetName: sheet.name,
+                        records: sheet.records
+                    });
+                });
+            } else {
+                console.warn(`Formato não suportado: ${file.name}`);
+                continue;
+            }
+
+            totalSheets += sheetsCount;
+
+            // Validar limite de abas
+            if (totalSheets > MAX_SHEETS) {
+                alert(`Limite de abas excedido! Máximo de ${MAX_SHEETS} abas permitidas. Processamento interrompido.`);
+                break;
+            }
+
+            allData = allData.concat(fileData);
         }
 
-        document.getElementById('fileCount').textContent =
-            `${files.length} arquivo(s) carregado(s) - ${allData.length} registros`;
+        // Atualizar informações na interface
+        updateFileInfo(files.length, totalSheets);
 
         filteredData = [...allData];
         updateDashboard();
         updateLastUpdate();
     } catch (error) {
         console.error('Erro ao carregar arquivos:', error);
-        alert('Erro ao carregar arquivos CSV. Verifique o formato dos arquivos.');
+        alert('Erro ao carregar arquivos. Verifique o formato dos arquivos e tente novamente.');
+    }
+}
+
+// Atualizar informações dos arquivos carregados
+function updateFileInfo(filesCount, sheetsCount) {
+    document.getElementById('fileCount').textContent =
+        `${filesCount} arquivo(s) carregado(s) - ${allData.length} registros totais`;
+
+    if (sheetsCount > 1) {
+        const sheetsList = loadedSheetsInfo
+            .map(info => `${info.sheetName} (${info.records} reg.)`)
+            .join(', ');
+
+        document.getElementById('sheetInfo').textContent =
+            `${sheetsCount} aba(s) processada(s): ${sheetsList}`;
     }
 }
 
@@ -66,6 +132,72 @@ function readCSV(file) {
 
         reader.onerror = () => reject(reader.error);
         reader.readAsText(file, 'UTF-8');
+    });
+}
+
+// Ler arquivo Excel (XLS/XLSX)
+function readExcel(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+
+                const allData = [];
+                const sheetsInfo = [];
+
+                // Limitar número de abas processadas
+                const sheetsToProcess = workbook.SheetNames.slice(0, MAX_SHEETS);
+
+                sheetsToProcess.forEach(sheetName => {
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+                        header: 1,
+                        defval: '',
+                        blankrows: false
+                    });
+
+                    if (jsonData.length > 0) {
+                        const headers = jsonData[0].map(h => String(h).trim());
+                        const sheetData = [];
+
+                        for (let i = 1; i < jsonData.length; i++) {
+                            if (jsonData[i].length === 0) continue;
+
+                            const obj = {};
+                            headers.forEach((header, index) => {
+                                obj[header] = jsonData[i][index] !== undefined
+                                    ? String(jsonData[i][index]).trim()
+                                    : '';
+                            });
+
+                            // Verificar se o objeto não está vazio
+                            if (Object.values(obj).some(v => v !== '')) {
+                                sheetData.push(obj);
+                            }
+                        }
+
+                        allData.push(...sheetData);
+                        sheetsInfo.push({
+                            name: sheetName,
+                            records: sheetData.length
+                        });
+                    }
+                });
+
+                resolve({
+                    data: allData,
+                    sheets: sheetsInfo
+                });
+            } catch (error) {
+                reject(error);
+            }
+        };
+
+        reader.onerror = () => reject(reader.error);
+        reader.readAsArrayBuffer(file);
     });
 }
 
@@ -594,9 +726,33 @@ function exportToCSV() {
     downloadFile(csvContent, 'rpv-export.csv', 'text/csv');
 }
 
-// Exportar para Excel (formato CSV compatível)
+// Exportar para Excel (formato XLSX)
 function exportToExcel() {
-    exportToCSV();
+    if (filteredData.length === 0) {
+        alert('Nenhum dado para exportar');
+        return;
+    }
+
+    // Preparar dados para exportação
+    const exportData = filteredData.map(item => ({
+        'Processo': getFieldValue(item, 'processo'),
+        'Exequente': getFieldValue(item, 'exequente'),
+        'Sindicato': getFieldValue(item, 'sindicato'),
+        'Grupo': getFieldValue(item, 'grupo'),
+        'Status': getFieldValue(item, 'status'),
+        'Valor': getFieldValue(item, 'valor'),
+        'Data': getFieldValue(item, 'data')
+    }));
+
+    // Criar workbook e worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(exportData);
+
+    // Adicionar worksheet ao workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'RPVs');
+
+    // Gerar arquivo e fazer download
+    XLSX.writeFile(wb, 'rpv-export.xlsx');
 }
 
 // Download de arquivo

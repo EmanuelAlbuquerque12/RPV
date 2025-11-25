@@ -1,0 +1,1969 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Cálculos Trabalhistas - TI</title>
+
+    <!-- Bibliotecas Externas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #ad1b08;
+            --primary-dark: #8a1506;
+            --bg-light: #f5f5f5;
+            --text-dark: #333;
+            --text-light: #666;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--bg-light) 0%, #e0e0e0 100%);
+            color: var(--text-dark);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(173, 27, 8, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 15s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+
+        .legal-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .legal-badge {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .legal-badge strong {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        /* BCB Integration Status */
+        .bcb-status {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .bcb-status h3 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: var(--bg-light);
+            border-radius: 10px;
+        }
+
+        .status-indicator.loading {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-indicator.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-indicator.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .rates-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .rate-card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .rate-card label {
+            display: block;
+            color: var(--text-light);
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .rate-card .rate-value {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .rate-card .rate-source {
+            font-size: 0.8em;
+            color: var(--text-light);
+            margin-top: 5px;
+        }
+
+        /* Tab Navigation */
+        .tab-navigation {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .tab-button {
+            flex: 1;
+            min-width: 200px;
+            padding: 15px 30px;
+            background: white;
+            border: 2px solid #e5e5e5;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tab-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(173, 27, 8, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .tab-button:hover::before {
+            left: 100%;
+        }
+
+        .tab-button:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(173, 27, 8, 0.2);
+        }
+
+        .tab-button.active {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: white;
+            border-color: var(--primary-color);
+            box-shadow: 0 5px 20px rgba(173, 27, 8, 0.3);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Card Styles */
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .card h2 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Upload Zone */
+        .upload-zone {
+            border: 3px dashed var(--primary-color);
+            border-radius: 15px;
+            padding: 50px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(173, 27, 8, 0.02);
+        }
+
+        .upload-zone:hover {
+            background: rgba(173, 27, 8, 0.05);
+            border-color: var(--primary-dark);
+            transform: scale(1.02);
+        }
+
+        .upload-zone.dragover {
+            background: rgba(173, 27, 8, 0.1);
+            border-color: var(--primary-dark);
+            transform: scale(1.05);
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .upload-zone input[type="file"] {
+            display: none;
+        }
+
+        /* OCR Statistics */
+        .ocr-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            border-left: 5px solid var(--primary-color);
+        }
+
+        .stat-card .stat-number {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .stat-card .stat-label {
+            color: var(--text-light);
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            margin: 20px 0;
+            display: none;
+        }
+
+        .progress-container.active {
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e5e5e5;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        /* Table Styles */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .data-table thead {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: white;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #e5e5e5;
+        }
+
+        .data-table tbody tr {
+            transition: all 0.3s ease;
+        }
+
+        .data-table tbody tr:hover {
+            background: rgba(173, 27, 8, 0.05);
+            transform: scale(1.01);
+        }
+
+        .data-table input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #e5e5e5;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+
+        .data-table input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        /* Salary Table Configuration */
+        .salary-config {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .salary-group {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .salary-group h3 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .salary-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .salary-row label {
+            flex: 0 0 80px;
+            font-weight: 600;
+        }
+
+        .salary-row input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e5e5e5;
+            border-radius: 10px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        .salary-row input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(173, 27, 8, 0.1);
+        }
+
+        /* Button Styles */
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin: 5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: white;
+            box-shadow: 0 5px 15px rgba(173, 27, 8, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(173, 27, 8, 0.4);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Results Section */
+        .results-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .result-card {
+            background: linear-gradient(135deg, white 0%, #f9fafb 100%);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            border-left: 5px solid var(--primary-color);
+        }
+
+        .result-card h3 {
+            color: var(--text-light);
+            font-size: 0.9em;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .result-card .value {
+            font-size: 2em;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .result-card .subvalue {
+            font-size: 0.9em;
+            color: var(--text-light);
+            margin-top: 5px;
+        }
+
+        /* Loading Spinner */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #e5e5e5;
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Preview Images */
+        .preview-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .preview-item {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .preview-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+
+        .preview-item .preview-name {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px;
+            font-size: 0.8em;
+            text-align: center;
+        }
+
+        /* Alert Messages */
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .alert.active {
+            display: block;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 5px solid var(--success);
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 5px solid var(--error);
+        }
+
+        .alert-warning {
+            background: #fef3c7;
+            color: #92400e;
+            border-left: 5px solid var(--warning);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .tab-button {
+                min-width: 100%;
+            }
+
+            .salary-config {
+                grid-template-columns: 1fr;
+            }
+
+            .legal-info {
+                grid-template-columns: 1fr;
+            }
+
+            .data-table {
+                font-size: 0.9em;
+            }
+
+            .data-table th,
+            .data-table td {
+                padding: 10px;
+            }
+        }
+
+        /* Scrollbar Styles */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-dark);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-content">
+                <h1>⚖️ Sistema de Cálculos Trabalhistas - TI</h1>
+                <div class="subtitle">Sistema especializado em cálculos de diferenças salariais conforme legislação brasileira</div>
+                <div class="legal-info">
+                    <div class="legal-badge">
+                        <strong>CLT Arts. 457-467</strong>
+                        Salário e Remuneração
+                    </div>
+                    <div class="legal-badge">
+                        <strong>CF/88 - Art. 7º, XXIX</strong>
+                        Prescrição Quinquenal (60 meses)
+                    </div>
+                    <div class="legal-badge">
+                        <strong>Lei 14.905/2024</strong>
+                        Correção IPCA-E + Juros SELIC
+                    </div>
+                    <div class="legal-badge">
+                        <strong>Súmulas TST 460 e 63</strong>
+                        Correção Monetária e Reflexos
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BCB Integration Status -->
+        <div class="bcb-status">
+            <h3>🏛️ Integração Banco Central do Brasil</h3>
+            <div class="status-indicator loading" id="bcbStatus">
+                <span>⏳</span>
+                <span id="bcbStatusText">Conectando ao Banco Central...</span>
+            </div>
+            <div class="rates-info">
+                <div class="rate-card">
+                    <label>Taxa SELIC Meta (% ao ano)</label>
+                    <div class="rate-value" id="selicRate">--</div>
+                    <div class="rate-source" id="selicSource">Aguardando dados...</div>
+                </div>
+                <div class="rate-card">
+                    <label>IPCA-E Acumulado 12 meses (% ao ano)</label>
+                    <div class="rate-value" id="ipcaRate">--</div>
+                    <div class="rate-source" id="ipcaSource">Aguardando dados...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tab-navigation">
+            <button class="tab-button active" onclick="switchTab('ocr')">
+                🔍 Modo OCR - Upload de Contracheques
+            </button>
+            <button class="tab-button" onclick="switchTab('excel')">
+                📊 Modo Excel - Upload de Planilha
+            </button>
+            <button class="tab-button" onclick="switchTab('config')">
+                ⚙️ Configuração de Tabelas Salariais
+            </button>
+        </div>
+
+        <!-- OCR Tab -->
+        <div class="tab-content active" id="ocrTab">
+            <div class="card">
+                <h2>🔍 Upload de Contracheques para OCR</h2>
+                <p style="color: var(--text-light); margin-bottom: 20px;">
+                    Faça upload de contracheques em PDF, JPG, PNG ou outros formatos de imagem.
+                    O sistema extrairá automaticamente os dados usando OCR.
+                </p>
+
+                <div class="upload-zone" id="ocrUploadZone">
+                    <div class="upload-icon">📄</div>
+                    <h3>Arraste arquivos aqui ou clique para selecionar</h3>
+                    <p>Formatos aceitos: PDF, JPG, PNG, JPEG, BMP</p>
+                    <input type="file" id="ocrFileInput" multiple accept=".pdf,.jpg,.jpeg,.png,.bmp">
+                </div>
+
+                <!-- OCR Statistics -->
+                <div class="ocr-stats" id="ocrStats" style="display: none;">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalFiles">0</div>
+                        <div class="stat-label">Total de Arquivos</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="processedFiles">0</div>
+                        <div class="stat-label">Processados</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="successFiles">0</div>
+                        <div class="stat-label">Sucesso</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="errorFiles">0</div>
+                        <div class="stat-label">Erros</div>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="progress-container" id="ocrProgress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="ocrProgressFill">0%</div>
+                    </div>
+                </div>
+
+                <!-- Loading -->
+                <div class="loading" id="ocrLoading">
+                    <div class="spinner"></div>
+                    <p>Processando contracheques com OCR...</p>
+                </div>
+
+                <!-- Preview -->
+                <div class="preview-container" id="ocrPreview"></div>
+
+                <!-- Extracted Data Table -->
+                <div id="ocrDataContainer" style="display: none;">
+                    <h3 style="margin: 30px 0 20px; color: var(--primary-color);">📋 Dados Extraídos (Editáveis)</h3>
+                    <div style="overflow-x: auto;">
+                        <table class="data-table" id="ocrDataTable">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>CPF</th>
+                                    <th>Matrícula</th>
+                                    <th>Cargo Atual</th>
+                                    <th>Salário Atual</th>
+                                    <th>Data Admissão</th>
+                                    <th>Cargo Pleiteado</th>
+                                    <th>Nível/Classe</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ocrDataBody"></tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button class="btn btn-secondary" onclick="addManualEmployee()">
+                            ➕ Adicionar Empregado Manualmente
+                        </button>
+                        <button class="btn btn-primary" onclick="calculateFromOCR()">
+                            🧮 Calcular Diferenças Salariais
+                        </button>
+                        <button class="btn btn-secondary" onclick="resetOCR()">
+                            🔄 Recomeçar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Excel Tab -->
+        <div class="tab-content" id="excelTab">
+            <div class="card">
+                <h2>📊 Upload de Planilha Excel</h2>
+                <p style="color: var(--text-light); margin-bottom: 20px;">
+                    Faça upload de uma planilha Excel (.xls ou .xlsx) com os dados dos empregados.
+                    <br><strong>Colunas esperadas:</strong> Nome, CPF, Matrícula, Cargo Atual, Salário Atual, Data Admissão, Cargo Pleiteado, Nível/Classe
+                </p>
+
+                <div class="upload-zone" id="excelUploadZone">
+                    <div class="upload-icon">📊</div>
+                    <h3>Arraste o arquivo Excel aqui ou clique para selecionar</h3>
+                    <p>Formatos aceitos: XLS, XLSX</p>
+                    <input type="file" id="excelFileInput" accept=".xls,.xlsx">
+                </div>
+
+                <div class="loading" id="excelLoading">
+                    <div class="spinner"></div>
+                    <p>Processando planilha Excel...</p>
+                </div>
+
+                <div id="excelDataContainer" style="display: none;">
+                    <h3 style="margin: 30px 0 20px; color: var(--primary-color);">📋 Dados Importados</h3>
+                    <div style="overflow-x: auto;">
+                        <table class="data-table" id="excelDataTable">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>CPF</th>
+                                    <th>Matrícula</th>
+                                    <th>Cargo Atual</th>
+                                    <th>Salário Atual</th>
+                                    <th>Data Admissão</th>
+                                    <th>Cargo Pleiteado</th>
+                                    <th>Nível/Classe</th>
+                                </tr>
+                            </thead>
+                            <tbody id="excelDataBody"></tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button class="btn btn-primary" onclick="calculateFromExcel()">
+                            🧮 Calcular Diferenças Salariais
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Config Tab -->
+        <div class="tab-content" id="configTab">
+            <div class="card">
+                <h2>⚙️ Configuração de Tabelas Salariais - TI</h2>
+                <p style="color: var(--text-light); margin-bottom: 20px;">
+                    Configure os valores das tabelas salariais para Analistas e Técnicos de TI conforme o Plano de Cargos e Salários vigente.
+                </p>
+
+                <div class="salary-config">
+                    <div class="salary-group">
+                        <h3>💼 Analistas de TI</h3>
+                        <div class="salary-row">
+                            <label>S-5:</label>
+                            <input type="number" id="salary_S5" value="8500" step="0.01" placeholder="R$ 8.500,00">
+                        </div>
+                        <div class="salary-row">
+                            <label>S-6:</label>
+                            <input type="number" id="salary_S6" value="10500" step="0.01" placeholder="R$ 10.500,00">
+                        </div>
+                        <div class="salary-row">
+                            <label>S-7:</label>
+                            <input type="number" id="salary_S7" value="13000" step="0.01" placeholder="R$ 13.000,00">
+                        </div>
+                    </div>
+
+                    <div class="salary-group">
+                        <h3>🔧 Técnicos de TI</h3>
+                        <div class="salary-row">
+                            <label>T1:</label>
+                            <input type="number" id="salary_T1" value="3500" step="0.01" placeholder="R$ 3.500,00">
+                        </div>
+                        <div class="salary-row">
+                            <label>T2:</label>
+                            <input type="number" id="salary_T2" value="4500" step="0.01" placeholder="R$ 4.500,00">
+                        </div>
+                        <div class="salary-row">
+                            <label>T3:</label>
+                            <input type="number" id="salary_T3" value="5500" step="0.01" placeholder="R$ 5.500,00">
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 30px;">
+                    <button class="btn btn-success" onclick="saveSalaryConfig()">
+                        💾 Salvar Configurações
+                    </button>
+                </div>
+
+                <div class="alert alert-success" id="configSaveAlert">
+                    ✅ Configurações salvas com sucesso!
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>📈 Configuração de Taxas de Correção</h2>
+                <p style="color: var(--text-light); margin-bottom: 20px;">
+                    As taxas são atualizadas automaticamente via API do Banco Central.
+                    Em caso de falha na conexão, você pode configurar manualmente.
+                </p>
+
+                <div class="salary-config">
+                    <div class="salary-group">
+                        <h3>💹 Taxas de Atualização</h3>
+                        <div class="salary-row">
+                            <label>SELIC (%):</label>
+                            <input type="number" id="manualSelic" step="0.01" placeholder="Ex: 11.25" readonly>
+                        </div>
+                        <div class="salary-row">
+                            <label>IPCA-E (%):</label>
+                            <input type="number" id="manualIpca" step="0.01" placeholder="Ex: 4.62" readonly>
+                        </div>
+                        <p style="font-size: 0.85em; color: var(--text-light); margin-top: 10px;">
+                            ℹ️ Campos atualizados automaticamente via API do Banco Central
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" style="display: none;">
+            <div class="card">
+                <h2>📊 Resultados dos Cálculos</h2>
+
+                <!-- Summary Cards -->
+                <div class="results-summary" id="resultsSummary"></div>
+
+                <!-- Detailed Results Table -->
+                <h3 style="margin: 30px 0 20px; color: var(--primary-color);">📋 Detalhamento por Empregado</h3>
+                <div style="overflow-x: auto;">
+                    <table class="data-table" id="resultsTable">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Cargo Atual</th>
+                                <th>Cargo Pleiteado</th>
+                                <th>Diferença Mensal</th>
+                                <th>Total Retroativo</th>
+                                <th>Total Vincendas</th>
+                                <th>Total Reflexos</th>
+                                <th>Total com Correção</th>
+                                <th>Total Geral</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- Export Buttons -->
+                <div style="margin-top: 30px; text-align: center;">
+                    <button class="btn btn-success" onclick="exportToExcel()">
+                        📥 Exportar para Excel
+                    </button>
+                    <button class="btn btn-primary" onclick="generatePDF()">
+                        📄 Gerar Relatório PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global Variables
+        let employeesData = [];
+        let calculationResults = [];
+        let selicRate = 0;
+        let ipcaRate = 0;
+
+        // Salary Tables
+        const salaryTables = {
+            'S5': 8500,
+            'S6': 10500,
+            'S7': 13000,
+            'T1': 3500,
+            'T2': 4500,
+            'T3': 5500
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+
+        function initializeApp() {
+            loadSalaryConfig();
+            fetchBCBRates();
+            setupEventListeners();
+        }
+
+        // BCB API Integration
+        async function fetchBCBRates() {
+            const statusEl = document.getElementById('bcbStatus');
+            const statusText = document.getElementById('bcbStatusText');
+
+            try {
+                statusEl.className = 'status-indicator loading';
+                statusText.textContent = 'Conectando ao Banco Central...';
+
+                // Fetch SELIC (Série 432)
+                const selicResponse = await fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json');
+                const selicData = await selicResponse.json();
+
+                // Fetch IPCA-E (Série 433) - últimos 12 meses
+                const ipcaResponse = await fetch('https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados/ultimos/12?formato=json');
+                const ipcaData = await ipcaResponse.json();
+
+                if (selicData && selicData.length > 0 && ipcaData && ipcaData.length > 0) {
+                    // Process SELIC
+                    selicRate = parseFloat(selicData[0].valor);
+                    const selicDate = selicData[0].data;
+
+                    // Process IPCA-E (acumulado 12 meses)
+                    const ipcaAccumulated = ipcaData.reduce((acc, item) => {
+                        const monthValue = parseFloat(item.valor);
+                        return acc * (1 + monthValue / 100);
+                    }, 1);
+                    ipcaRate = (ipcaAccumulated - 1) * 100;
+                    const ipcaDate = ipcaData[ipcaData.length - 1].data;
+
+                    // Update UI
+                    document.getElementById('selicRate').textContent = selicRate.toFixed(2) + '%';
+                    document.getElementById('selicSource').textContent = `Série 432 - Ref: ${formatDate(selicDate)}`;
+
+                    document.getElementById('ipcaRate').textContent = ipcaRate.toFixed(2) + '%';
+                    document.getElementById('ipcaSource').textContent = `Série 433 - Acum. 12 meses - Ref: ${formatDate(ipcaDate)}`;
+
+                    document.getElementById('manualSelic').value = selicRate.toFixed(2);
+                    document.getElementById('manualIpca').value = ipcaRate.toFixed(2);
+
+                    statusEl.className = 'status-indicator success';
+                    statusText.textContent = '✅ Conectado ao Banco Central - Dados Atualizados';
+                } else {
+                    throw new Error('Dados vazios recebidos');
+                }
+            } catch (error) {
+                console.error('Erro ao buscar taxas do BCB:', error);
+
+                // Fallback to manual values
+                selicRate = 11.25;
+                ipcaRate = 4.62;
+
+                document.getElementById('selicRate').textContent = selicRate.toFixed(2) + '%';
+                document.getElementById('selicSource').textContent = 'Valor padrão (API offline)';
+
+                document.getElementById('ipcaRate').textContent = ipcaRate.toFixed(2) + '%';
+                document.getElementById('ipcaSource').textContent = 'Valor padrão (API offline)';
+
+                document.getElementById('manualSelic').value = selicRate.toFixed(2);
+                document.getElementById('manualIpca').value = ipcaRate.toFixed(2);
+                document.getElementById('manualSelic').removeAttribute('readonly');
+                document.getElementById('manualIpca').removeAttribute('readonly');
+
+                statusEl.className = 'status-indicator error';
+                statusText.textContent = '❌ Erro na conexão - Usando valores padrão';
+            }
+        }
+
+        function formatDate(dateStr) {
+            const [day, month, year] = dateStr.split('/');
+            const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+            return `${months[parseInt(month) - 1]}/${year}`;
+        }
+
+        // Tab Switching
+        function switchTab(tabName) {
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            // Add active class to selected tab
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+
+        // Event Listeners Setup
+        function setupEventListeners() {
+            // OCR Upload
+            const ocrZone = document.getElementById('ocrUploadZone');
+            const ocrInput = document.getElementById('ocrFileInput');
+
+            ocrZone.addEventListener('click', () => ocrInput.click());
+            ocrInput.addEventListener('change', handleOCRFiles);
+
+            ocrZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                ocrZone.classList.add('dragover');
+            });
+
+            ocrZone.addEventListener('dragleave', () => {
+                ocrZone.classList.remove('dragover');
+            });
+
+            ocrZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                ocrZone.classList.remove('dragover');
+                ocrInput.files = e.dataTransfer.files;
+                handleOCRFiles();
+            });
+
+            // Excel Upload
+            const excelZone = document.getElementById('excelUploadZone');
+            const excelInput = document.getElementById('excelFileInput');
+
+            excelZone.addEventListener('click', () => excelInput.click());
+            excelInput.addEventListener('change', handleExcelFile);
+
+            excelZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                excelZone.classList.add('dragover');
+            });
+
+            excelZone.addEventListener('dragleave', () => {
+                excelZone.classList.remove('dragover');
+            });
+
+            excelZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                excelZone.classList.remove('dragover');
+                excelInput.files = e.dataTransfer.files;
+                handleExcelFile();
+            });
+        }
+
+        // OCR Processing
+        async function handleOCRFiles() {
+            const files = document.getElementById('ocrFileInput').files;
+            if (files.length === 0) return;
+
+            // Show statistics
+            document.getElementById('ocrStats').style.display = 'grid';
+            document.getElementById('totalFiles').textContent = files.length;
+            document.getElementById('processedFiles').textContent = '0';
+            document.getElementById('successFiles').textContent = '0';
+            document.getElementById('errorFiles').textContent = '0';
+
+            // Show progress
+            document.getElementById('ocrProgress').classList.add('active');
+            document.getElementById('ocrLoading').classList.add('active');
+
+            const preview = document.getElementById('ocrPreview');
+            preview.innerHTML = '';
+
+            employeesData = [];
+            let processed = 0;
+            let success = 0;
+            let errors = 0;
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+
+                try {
+                    // Create preview
+                    const previewItem = document.createElement('div');
+                    previewItem.className = 'preview-item';
+
+                    if (file.type === 'application/pdf') {
+                        // Handle PDF
+                        const imageUrl = await convertPDFToImage(file);
+                        previewItem.innerHTML = `
+                            <img src="${imageUrl}" alt="${file.name}">
+                            <div class="preview-name">${file.name}</div>
+                        `;
+                    } else {
+                        // Handle Image
+                        const imageUrl = URL.createObjectURL(file);
+                        previewItem.innerHTML = `
+                            <img src="${imageUrl}" alt="${file.name}">
+                            <div class="preview-name">${file.name}</div>
+                        `;
+                    }
+
+                    preview.appendChild(previewItem);
+
+                    // Process with OCR
+                    const employeeData = await processOCR(file);
+
+                    if (employeeData) {
+                        employeesData.push(employeeData);
+                        success++;
+                    } else {
+                        errors++;
+                    }
+                } catch (error) {
+                    console.error('Erro ao processar arquivo:', error);
+                    errors++;
+                }
+
+                processed++;
+
+                // Update progress
+                const progress = Math.round((processed / files.length) * 100);
+                document.getElementById('ocrProgressFill').style.width = progress + '%';
+                document.getElementById('ocrProgressFill').textContent = progress + '%';
+                document.getElementById('processedFiles').textContent = processed;
+                document.getElementById('successFiles').textContent = success;
+                document.getElementById('errorFiles').textContent = errors;
+            }
+
+            // Hide loading
+            document.getElementById('ocrLoading').classList.remove('active');
+
+            // Show data table
+            if (employeesData.length > 0) {
+                displayOCRData();
+            }
+        }
+
+        async function convertPDFToImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    try {
+                        const typedarray = new Uint8Array(e.target.result);
+                        const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                        const page = await pdf.getPage(1);
+
+                        const scale = 2;
+                        const viewport = page.getViewport({ scale: scale });
+
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+
+                        await page.render({
+                            canvasContext: context,
+                            viewport: viewport
+                        }).promise;
+
+                        resolve(canvas.toDataURL());
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        async function processOCR(file) {
+            try {
+                let imageData;
+
+                if (file.type === 'application/pdf') {
+                    imageData = await convertPDFToImage(file);
+                } else {
+                    imageData = URL.createObjectURL(file);
+                }
+
+                // Perform OCR
+                const result = await Tesseract.recognize(
+                    imageData,
+                    'por',
+                    {
+                        logger: m => console.log(m)
+                    }
+                );
+
+                const text = result.data.text;
+                console.log('OCR Text:', text);
+
+                // Extract data
+                return extractEmployeeData(text);
+            } catch (error) {
+                console.error('Erro no OCR:', error);
+                return null;
+            }
+        }
+
+        function extractEmployeeData(text) {
+            const employee = {
+                nome: '',
+                cpf: '',
+                matricula: '',
+                cargoAtual: '',
+                salarioAtual: '',
+                dataAdmissao: '',
+                cargoPleiteado: '',
+                nivelClasse: ''
+            };
+
+            // Extract Nome (look for common patterns)
+            const nomeMatch = text.match(/(?:Nome|NOME|Funcionário|FUNCIONÁRIO)[:\s]+([A-ZÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜ\s]+)/i);
+            if (nomeMatch) {
+                employee.nome = nomeMatch[1].trim();
+            }
+
+            // Extract CPF
+            const cpfMatch = text.match(/(\d{3}\.?\d{3}\.?\d{3}-?\d{2})/);
+            if (cpfMatch) {
+                employee.cpf = cpfMatch[1].replace(/\D/g, '').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+            }
+
+            // Extract Matrícula
+            const matriculaMatch = text.match(/(?:Matrícula|MATRÍCULA|Mat\.|MAT\.)[:\s]+(\d+)/i);
+            if (matriculaMatch) {
+                employee.matricula = matriculaMatch[1];
+            }
+
+            // Extract Cargo
+            const cargoMatch = text.match(/(?:Cargo|CARGO|Função|FUNÇÃO)[:\s]+([A-ZÀ-Ú\s]+?)(?:\n|R\$|\d)/i);
+            if (cargoMatch) {
+                employee.cargoAtual = cargoMatch[1].trim();
+            }
+
+            // Extract Salário (look for values between R$ 1000 and R$ 50000)
+            const salarioMatch = text.match(/R\$?\s*(\d{1,2}\.?\d{3},\d{2})/);
+            if (salarioMatch) {
+                employee.salarioAtual = salarioMatch[1].replace('.', '').replace(',', '.');
+            }
+
+            // Extract Data Admissão
+            const dataMatch = text.match(/(?:Admissão|ADMISSÃO|Admitido|ADMITIDO)[:\s]+(\d{2}\/\d{2}\/\d{4})/i);
+            if (dataMatch) {
+                employee.dataAdmissao = dataMatch[1];
+            }
+
+            // Extract Nível/Classe (S-5, S-6, S-7, T1, T2, T3)
+            const nivelMatch = text.match(/(S-?[567]|T-?[123])/i);
+            if (nivelMatch) {
+                employee.nivelClasse = nivelMatch[1].toUpperCase().replace('-', '');
+            }
+
+            // If we got at least nome and some other field, consider it valid
+            if (employee.nome && (employee.cpf || employee.matricula || employee.salarioAtual)) {
+                return employee;
+            }
+
+            return null;
+        }
+
+        function displayOCRData() {
+            document.getElementById('ocrDataContainer').style.display = 'block';
+            const tbody = document.getElementById('ocrDataBody');
+            tbody.innerHTML = '';
+
+            employeesData.forEach((emp, index) => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td><input type="text" value="${emp.nome}" onchange="updateEmployee(${index}, 'nome', this.value)"></td>
+                    <td><input type="text" value="${emp.cpf}" onchange="updateEmployee(${index}, 'cpf', this.value)"></td>
+                    <td><input type="text" value="${emp.matricula}" onchange="updateEmployee(${index}, 'matricula', this.value)"></td>
+                    <td><input type="text" value="${emp.cargoAtual}" onchange="updateEmployee(${index}, 'cargoAtual', this.value)"></td>
+                    <td><input type="number" value="${emp.salarioAtual}" step="0.01" onchange="updateEmployee(${index}, 'salarioAtual', this.value)"></td>
+                    <td><input type="date" value="${convertToDateInput(emp.dataAdmissao)}" onchange="updateEmployee(${index}, 'dataAdmissao', this.value)"></td>
+                    <td>
+                        <select onchange="updateEmployee(${index}, 'cargoPleiteado', this.value)">
+                            <option value="">Selecione...</option>
+                            <option value="Analista de TI" ${emp.cargoPleiteado === 'Analista de TI' ? 'selected' : ''}>Analista de TI</option>
+                            <option value="Técnico de TI" ${emp.cargoPleiteado === 'Técnico de TI' ? 'selected' : ''}>Técnico de TI</option>
+                        </select>
+                    </td>
+                    <td>
+                        <select onchange="updateEmployee(${index}, 'nivelClasse', this.value)">
+                            <option value="">Selecione...</option>
+                            <optgroup label="Analista">
+                                <option value="S5" ${emp.nivelClasse === 'S5' ? 'selected' : ''}>S-5</option>
+                                <option value="S6" ${emp.nivelClasse === 'S6' ? 'selected' : ''}>S-6</option>
+                                <option value="S7" ${emp.nivelClasse === 'S7' ? 'selected' : ''}>S-7</option>
+                            </optgroup>
+                            <optgroup label="Técnico">
+                                <option value="T1" ${emp.nivelClasse === 'T1' ? 'selected' : ''}>T1</option>
+                                <option value="T2" ${emp.nivelClasse === 'T2' ? 'selected' : ''}>T2</option>
+                                <option value="T3" ${emp.nivelClasse === 'T3' ? 'selected' : ''}>T3</option>
+                            </optgroup>
+                        </select>
+                    </td>
+                    <td>
+                        <button class="btn btn-secondary" style="padding: 8px 15px; font-size: 0.9em;" onclick="removeEmployee(${index})">❌</button>
+                    </td>
+                `;
+            });
+        }
+
+        function convertToDateInput(dateStr) {
+            if (!dateStr) return '';
+            if (dateStr.includes('/')) {
+                const [day, month, year] = dateStr.split('/');
+                return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+            }
+            return dateStr;
+        }
+
+        function updateEmployee(index, field, value) {
+            employeesData[index][field] = value;
+        }
+
+        function removeEmployee(index) {
+            employeesData.splice(index, 1);
+            displayOCRData();
+
+            // Update stats
+            document.getElementById('successFiles').textContent = employeesData.length;
+        }
+
+        function addManualEmployee() {
+            const newEmployee = {
+                nome: '',
+                cpf: '',
+                matricula: '',
+                cargoAtual: '',
+                salarioAtual: '',
+                dataAdmissao: '',
+                cargoPleiteado: '',
+                nivelClasse: ''
+            };
+            employeesData.push(newEmployee);
+            displayOCRData();
+        }
+
+        function resetOCR() {
+            employeesData = [];
+            document.getElementById('ocrFileInput').value = '';
+            document.getElementById('ocrStats').style.display = 'none';
+            document.getElementById('ocrProgress').classList.remove('active');
+            document.getElementById('ocrPreview').innerHTML = '';
+            document.getElementById('ocrDataContainer').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'none';
+        }
+
+        // Excel Processing
+        function handleExcelFile() {
+            const file = document.getElementById('excelFileInput').files[0];
+            if (!file) return;
+
+            document.getElementById('excelLoading').classList.add('active');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+
+                    // Get first sheet
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                    employeesData = jsonData.map(row => ({
+                        nome: row['Nome'] || row['nome'] || '',
+                        cpf: row['CPF'] || row['cpf'] || '',
+                        matricula: row['Matrícula'] || row['Matricula'] || row['matricula'] || '',
+                        cargoAtual: row['Cargo Atual'] || row['cargo_atual'] || row['CargoAtual'] || '',
+                        salarioAtual: row['Salário Atual'] || row['Salario Atual'] || row['salario_atual'] || row['SalarioAtual'] || '',
+                        dataAdmissao: row['Data Admissão'] || row['Data Admissao'] || row['data_admissao'] || row['DataAdmissao'] || '',
+                        cargoPleiteado: row['Cargo Pleiteado'] || row['cargo_pleiteado'] || row['CargoPleiteado'] || '',
+                        nivelClasse: row['Nível/Classe'] || row['Nivel/Classe'] || row['nivel_classe'] || row['NivelClasse'] || ''
+                    }));
+
+                    displayExcelData();
+                    document.getElementById('excelLoading').classList.remove('active');
+                } catch (error) {
+                    console.error('Erro ao processar Excel:', error);
+                    alert('Erro ao processar arquivo Excel. Verifique o formato.');
+                    document.getElementById('excelLoading').classList.remove('active');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function displayExcelData() {
+            document.getElementById('excelDataContainer').style.display = 'block';
+            const tbody = document.getElementById('excelDataBody');
+            tbody.innerHTML = '';
+
+            employeesData.forEach(emp => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${emp.nome}</td>
+                    <td>${emp.cpf}</td>
+                    <td>${emp.matricula}</td>
+                    <td>${emp.cargoAtual}</td>
+                    <td>${formatCurrency(emp.salarioAtual)}</td>
+                    <td>${formatDateBR(emp.dataAdmissao)}</td>
+                    <td>${emp.cargoPleiteado}</td>
+                    <td>${emp.nivelClasse}</td>
+                `;
+            });
+        }
+
+        // Salary Configuration
+        function loadSalaryConfig() {
+            const saved = localStorage.getItem('salaryConfig');
+            if (saved) {
+                const config = JSON.parse(saved);
+                Object.assign(salaryTables, config);
+            }
+
+            // Update inputs
+            Object.keys(salaryTables).forEach(key => {
+                const input = document.getElementById('salary_' + key);
+                if (input) {
+                    input.value = salaryTables[key];
+                }
+            });
+        }
+
+        function saveSalaryConfig() {
+            Object.keys(salaryTables).forEach(key => {
+                const input = document.getElementById('salary_' + key);
+                if (input) {
+                    salaryTables[key] = parseFloat(input.value) || 0;
+                }
+            });
+
+            localStorage.setItem('salaryConfig', JSON.stringify(salaryTables));
+
+            const alert = document.getElementById('configSaveAlert');
+            alert.classList.add('active');
+            setTimeout(() => {
+                alert.classList.remove('active');
+            }, 3000);
+        }
+
+        // Calculations
+        function calculateFromOCR() {
+            if (employeesData.length === 0) {
+                alert('Nenhum dado para calcular!');
+                return;
+            }
+            performCalculations();
+        }
+
+        function calculateFromExcel() {
+            if (employeesData.length === 0) {
+                alert('Nenhum dado para calcular!');
+                return;
+            }
+            performCalculations();
+        }
+
+        function performCalculations() {
+            calculationResults = [];
+
+            employeesData.forEach(emp => {
+                // Get target salary from table
+                const targetSalary = salaryTables[emp.nivelClasse] || 0;
+                const currentSalary = parseFloat(emp.salarioAtual) || 0;
+
+                if (targetSalary === 0 || currentSalary === 0) {
+                    console.warn('Salário inválido para:', emp.nome);
+                    return;
+                }
+
+                // Calculate monthly difference
+                const monthlyDifference = targetSalary - currentSalary;
+
+                // Calculate months from admission (max 60 - prescrição quinquenal)
+                const admissionDate = new Date(emp.dataAdmissao);
+                const today = new Date();
+                let monthsWorked = (today.getFullYear() - admissionDate.getFullYear()) * 12;
+                monthsWorked += today.getMonth() - admissionDate.getMonth();
+                monthsWorked = Math.min(monthsWorked, 60); // Max 60 months
+
+                // Retroactive amount (parcelas vencidas)
+                const retroactiveAmount = monthlyDifference * monthsWorked;
+
+                // Future installments (12 months - parcelas vincendas)
+                const futureInstallments = monthlyDifference * 12;
+
+                // Reflections (reflexos)
+                const decimoTerceiro = monthlyDifference * (12 / 12); // Proporcional
+                const ferias = monthlyDifference * (12 / 12); // Proporcional
+                const tercoFerias = ferias / 3; // 1/3 constitucional
+                const fgts = (monthlyDifference * 12) * 0.08; // 8% sobre total anual
+
+                const totalReflexos = decimoTerceiro + ferias + tercoFerias + fgts;
+
+                // Monetary correction (Lei 14.905/2024)
+                const correction = (retroactiveAmount + futureInstallments + totalReflexos) * ((ipcaRate / 100) + (selicRate / 100));
+
+                // Total
+                const totalAmount = retroactiveAmount + futureInstallments + totalReflexos + correction;
+
+                calculationResults.push({
+                    employee: emp,
+                    monthlyDifference,
+                    monthsWorked,
+                    retroactiveAmount,
+                    futureInstallments,
+                    decimoTerceiro,
+                    ferias,
+                    tercoFerias,
+                    fgts,
+                    totalReflexos,
+                    correction,
+                    totalAmount
+                });
+            });
+
+            displayResults();
+        }
+
+        function displayResults() {
+            // Show results section
+            document.getElementById('resultsSection').style.display = 'block';
+
+            // Calculate summary
+            const totalEmployees = calculationResults.length;
+            const totalRetroactive = calculationResults.reduce((sum, r) => sum + r.retroactiveAmount, 0);
+            const totalFuture = calculationResults.reduce((sum, r) => sum + r.futureInstallments, 0);
+            const totalReflexos = calculationResults.reduce((sum, r) => sum + r.totalReflexos, 0);
+            const totalCorrection = calculationResults.reduce((sum, r) => sum + r.correction, 0);
+            const totalGeneral = calculationResults.reduce((sum, r) => sum + r.totalAmount, 0);
+
+            // Display summary cards
+            const summary = document.getElementById('resultsSummary');
+            summary.innerHTML = `
+                <div class="result-card">
+                    <h3>Total de Empregados</h3>
+                    <div class="value">${totalEmployees}</div>
+                </div>
+                <div class="result-card">
+                    <h3>Total Retroativo (Vencidas)</h3>
+                    <div class="value">${formatCurrency(totalRetroactive)}</div>
+                    <div class="subvalue">Últimos ${Math.min(60, calculationResults[0]?.monthsWorked || 0)} meses</div>
+                </div>
+                <div class="result-card">
+                    <h3>Total Vincendas</h3>
+                    <div class="value">${formatCurrency(totalFuture)}</div>
+                    <div class="subvalue">Próximos 12 meses</div>
+                </div>
+                <div class="result-card">
+                    <h3>Total Reflexos</h3>
+                    <div class="value">${formatCurrency(totalReflexos)}</div>
+                    <div class="subvalue">13º, Férias, 1/3, FGTS</div>
+                </div>
+                <div class="result-card">
+                    <h3>Correção Monetária</h3>
+                    <div class="value">${formatCurrency(totalCorrection)}</div>
+                    <div class="subvalue">IPCA-E + SELIC</div>
+                </div>
+                <div class="result-card" style="border-left-color: #10b981;">
+                    <h3>Total Geral</h3>
+                    <div class="value" style="color: #10b981;">${formatCurrency(totalGeneral)}</div>
+                    <div class="subvalue">Valor total da ação</div>
+                </div>
+            `;
+
+            // Display detailed table
+            const tbody = document.getElementById('resultsBody');
+            tbody.innerHTML = '';
+
+            calculationResults.forEach(result => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td><strong>${result.employee.nome}</strong></td>
+                    <td>${result.employee.cargoAtual}</td>
+                    <td>${result.employee.cargoPleiteado} (${result.employee.nivelClasse})</td>
+                    <td>${formatCurrency(result.monthlyDifference)}</td>
+                    <td>${formatCurrency(result.retroactiveAmount)}</td>
+                    <td>${formatCurrency(result.futureInstallments)}</td>
+                    <td>${formatCurrency(result.totalReflexos)}</td>
+                    <td>${formatCurrency(result.correction)}</td>
+                    <td><strong>${formatCurrency(result.totalAmount)}</strong></td>
+                `;
+            });
+
+            // Scroll to results
+            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Export Functions
+        function exportToExcel() {
+            const wb = XLSX.utils.book_new();
+
+            // Summary sheet
+            const summaryData = [
+                ['RELATÓRIO DE CÁLCULOS TRABALHISTAS - TI'],
+                ['Gerado em:', new Date().toLocaleString('pt-BR')],
+                [''],
+                ['RESUMO GERAL'],
+                ['Total de Empregados', calculationResults.length],
+                ['Total Retroativo (Vencidas)', calculationResults.reduce((sum, r) => sum + r.retroactiveAmount, 0)],
+                ['Total Vincendas (12 meses)', calculationResults.reduce((sum, r) => sum + r.futureInstallments, 0)],
+                ['Total Reflexos', calculationResults.reduce((sum, r) => sum + r.totalReflexos, 0)],
+                ['Correção Monetária (IPCA-E + SELIC)', calculationResults.reduce((sum, r) => sum + r.correction, 0)],
+                ['TOTAL GERAL', calculationResults.reduce((sum, r) => sum + r.totalAmount, 0)],
+                [''],
+                ['TAXAS APLICADAS'],
+                ['Taxa SELIC (%)', selicRate],
+                ['Taxa IPCA-E (%)', ipcaRate]
+            ];
+
+            const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+            XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumo');
+
+            // Detailed sheet
+            const detailedData = [
+                ['Nome', 'CPF', 'Matrícula', 'Cargo Atual', 'Cargo Pleiteado', 'Nível', 'Salário Atual', 'Salário Pleiteado',
+                 'Diferença Mensal', 'Meses Retroativos', 'Total Retroativo', 'Total Vincendas', '13º Salário',
+                 'Férias', '1/3 Férias', 'FGTS', 'Total Reflexos', 'Correção Monetária', 'TOTAL GERAL']
+            ];
+
+            calculationResults.forEach(r => {
+                detailedData.push([
+                    r.employee.nome,
+                    r.employee.cpf,
+                    r.employee.matricula,
+                    r.employee.cargoAtual,
+                    r.employee.cargoPleiteado,
+                    r.employee.nivelClasse,
+                    parseFloat(r.employee.salarioAtual),
+                    salaryTables[r.employee.nivelClasse],
+                    r.monthlyDifference,
+                    r.monthsWorked,
+                    r.retroactiveAmount,
+                    r.futureInstallments,
+                    r.decimoTerceiro,
+                    r.ferias,
+                    r.tercoFerias,
+                    r.fgts,
+                    r.totalReflexos,
+                    r.correction,
+                    r.totalAmount
+                ]);
+            });
+
+            const wsDetailed = XLSX.utils.aoa_to_sheet(detailedData);
+            XLSX.utils.book_append_sheet(wb, wsDetailed, 'Detalhamento');
+
+            // Download
+            XLSX.writeFile(wb, `Calculo_Trabalhista_TI_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+
+        function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Title
+            doc.setFontSize(18);
+            doc.setTextColor(173, 27, 8);
+            doc.text('RELATÓRIO DE CÁLCULOS TRABALHISTAS - TI', 105, 20, { align: 'center' });
+
+            doc.setFontSize(10);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 105, 28, { align: 'center' });
+
+            // Legal Foundation
+            doc.setFontSize(12);
+            doc.setTextColor(173, 27, 8);
+            doc.text('1. FUNDAMENTAÇÃO LEGAL', 14, 40);
+
+            doc.setFontSize(10);
+            doc.setTextColor(0, 0, 0);
+            let yPos = 48;
+
+            const legalTexts = [
+                '1.1. CLT - Arts. 457-467 (Salário e Remuneração)',
+                '      Base legal para equiparação salarial e diferenças de cargo.',
+                '',
+                '1.2. CF/88 - Art. 7º, XXIX (Prescrição Quinquenal)',
+                '      Limite de 60 meses retroativos para cobrança de diferenças.',
+                '',
+                '1.3. Lei 14.905/2024 (Correção Monetária)',
+                '      Atualização pelo IPCA-E acumulado + Juros pela taxa SELIC.',
+                '',
+                '1.4. Súmula 460 do TST (Correção Monetária)',
+                '      Aplicação de índices oficiais sobre valores devidos.',
+                '',
+                '1.5. Súmula 63 do TST (Reflexos em Verbas Trabalhistas)',
+                '      Diferenças salariais refletem em 13º, férias, 1/3 e FGTS.'
+            ];
+
+            legalTexts.forEach(text => {
+                doc.text(text, 14, yPos);
+                yPos += 5;
+            });
+
+            // Calculation Methodology
+            yPos += 5;
+            doc.setFontSize(12);
+            doc.setTextColor(173, 27, 8);
+            doc.text('2. METODOLOGIA DE CÁLCULO', 14, yPos);
+            yPos += 8;
+
+            doc.setFontSize(10);
+            doc.setTextColor(0, 0, 0);
+
+            const methodTexts = [
+                '2.1. Diferença Salarial Mensal',
+                '      Calculada como: Salário Pleiteado - Salário Atual',
+                '',
+                '2.2. Parcelas Vencidas (Retroativo)',
+                '      Diferença mensal × Número de meses (máx. 60 - prescrição quinquenal)',
+                '',
+                '2.3. Parcelas Vincendas',
+                '      Diferença mensal × 12 meses futuros',
+                '',
+                '2.4. Reflexos Legais',
+                '      • 13º Salário: Diferença mensal × 12/12 (proporcional)',
+                '      • Férias: Diferença mensal × 12/12 (proporcional)',
+                '      • 1/3 Constitucional: Valor de férias ÷ 3',
+                '      • FGTS: (Diferença anual) × 8%',
+                '',
+                '2.5. Correção Monetária e Juros (Lei 14.905/2024)',
+                `      • Taxa IPCA-E acumulado 12 meses: ${ipcaRate.toFixed(2)}% ao ano`,
+                `      • Taxa SELIC Meta: ${selicRate.toFixed(2)}% ao ano`,
+                '      • Fonte: Banco Central do Brasil - Sistema Gerenciador de Séries Temporais (SGS)',
+                '      • Séries: 432 (SELIC Meta) | 433 (IPCA-E)',
+                `      • Atualização automática via API do Banco Central`,
+                '      • Aplicação: (Retroativo + Vincendas + Reflexos) × (IPCA-E% + SELIC%)'
+            ];
+
+            methodTexts.forEach(text => {
+                if (yPos > 270) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                doc.text(text, 14, yPos);
+                yPos += 5;
+            });
+
+            // Summary
+            doc.addPage();
+            yPos = 20;
+            doc.setFontSize(12);
+            doc.setTextColor(173, 27, 8);
+            doc.text('3. RESUMO GERAL', 14, yPos);
+            yPos += 10;
+
+            const totalEmployees = calculationResults.length;
+            const totalRetroactive = calculationResults.reduce((sum, r) => sum + r.retroactiveAmount, 0);
+            const totalFuture = calculationResults.reduce((sum, r) => sum + r.futureInstallments, 0);
+            const totalReflexos = calculationResults.reduce((sum, r) => sum + r.totalReflexos, 0);
+            const totalCorrection = calculationResults.reduce((sum, r) => sum + r.correction, 0);
+            const totalGeneral = calculationResults.reduce((sum, r) => sum + r.totalAmount, 0);
+
+            doc.autoTable({
+                startY: yPos,
+                head: [['Descrição', 'Valor']],
+                body: [
+                    ['Total de Empregados', totalEmployees.toString()],
+                    ['Total Retroativo (Parcelas Vencidas)', formatCurrency(totalRetroactive)],
+                    ['Total Vincendas (12 meses futuros)', formatCurrency(totalFuture)],
+                    ['Total Reflexos (13º, Férias, 1/3, FGTS)', formatCurrency(totalReflexos)],
+                    ['Correção Monetária (IPCA-E + SELIC)', formatCurrency(totalCorrection)],
+                    ['TOTAL GERAL DA AÇÃO', formatCurrency(totalGeneral)]
+                ],
+                theme: 'grid',
+                headStyles: { fillColor: [173, 27, 8], textColor: 255 },
+                styles: { fontSize: 10 },
+                columnStyles: {
+                    0: { cellWidth: 100 },
+                    1: { cellWidth: 80, halign: 'right', fontStyle: 'bold' }
+                }
+            });
+
+            // Detailed Results
+            doc.addPage();
+            doc.setFontSize(12);
+            doc.setTextColor(173, 27, 8);
+            doc.text('4. DETALHAMENTO POR EMPREGADO', 14, 20);
+
+            const tableData = calculationResults.map(r => [
+                r.employee.nome,
+                r.employee.nivelClasse,
+                formatCurrency(r.monthlyDifference),
+                r.monthsWorked.toString(),
+                formatCurrency(r.retroactiveAmount),
+                formatCurrency(r.futureInstallments),
+                formatCurrency(r.totalReflexos),
+                formatCurrency(r.totalAmount)
+            ]);
+
+            doc.autoTable({
+                startY: 28,
+                head: [['Nome', 'Nível', 'Dif. Mensal', 'Meses', 'Retroativo', 'Vincendas', 'Reflexos', 'Total']],
+                body: tableData,
+                theme: 'grid',
+                headStyles: { fillColor: [173, 27, 8], textColor: 255 },
+                styles: { fontSize: 8 },
+                columnStyles: {
+                    0: { cellWidth: 50 },
+                    1: { cellWidth: 15, halign: 'center' },
+                    2: { cellWidth: 20, halign: 'right' },
+                    3: { cellWidth: 15, halign: 'center' },
+                    4: { cellWidth: 25, halign: 'right' },
+                    5: { cellWidth: 25, halign: 'right' },
+                    6: { cellWidth: 25, halign: 'right' },
+                    7: { cellWidth: 25, halign: 'right', fontStyle: 'bold' }
+                }
+            });
+
+            // Footer
+            const pageCount = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.setTextColor(150);
+                doc.text(
+                    `Sistema de Cálculos Trabalhistas - TI | Página ${i} de ${pageCount}`,
+                    105,
+                    290,
+                    { align: 'center' }
+                );
+            }
+
+            // Save
+            doc.save(`Relatorio_Calculo_Trabalhista_TI_${new Date().toISOString().split('T')[0]}.pdf`);
+        }
+
+        // Utility Functions
+        function formatCurrency(value) {
+            if (typeof value === 'string') {
+                value = parseFloat(value);
+            }
+            return new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            }).format(value || 0);
+        }
+
+        function formatDateBR(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('pt-BR');
+        }
+
+        // PDF.js Worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+</body>
+</html>
